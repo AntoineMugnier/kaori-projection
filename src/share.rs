@@ -1,33 +1,33 @@
 use std::rc;
 use std::marker;
 
-enum Next<'a>{
+ pub enum Next<'a>{
     ConditionalBranch(Box<ConditionalBranch<'a>>),
     Target(rc::Rc<State<'a>>)
 }
 
-struct Entry{
+pub struct Entry{
     label: String
 }
-struct Exit{
+pub struct Exit{
     label: String
 }
-struct Init<'a>{
+pub struct Init<'a>{
     label: String,
     target: rc::Rc<State<'a>>
 }
 
-struct ConditionalBranch<'a>{
+pub struct ConditionalBranch<'a>{
     label: String, 
     next: Vec<Next<'a>> 
 }
 
-struct EvtHandler<'a>{
+pub struct EvtHandler<'a>{
     label: String,
     next: Vec<Next<'a>> 
 }
 
-struct State<'a>{
+pub struct State<'a>{
     phantom_data: marker::PhantomData<&'a u8>,
     label: String,
     entry: Option<Entry>,
