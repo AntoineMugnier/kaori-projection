@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error{
     #[error("Compilation error in Rust code: {filepath} ")]
-    InvalidSourceFileContent{filepath: String},
+    InvalidRustCode{filepath: String},
     #[error("Unable to read file:  {filepath} ")]
     InvalidSourceFile{filepath: String},
     #[error("Parsing failed for TopState : {top_state_name}")]

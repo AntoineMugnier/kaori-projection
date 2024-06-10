@@ -1,7 +1,6 @@
 use core::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::str::FromStr;
 use crate::errors::Error;
 use proc_macro2::TokenStream;
 use syn::{parse::Parse, PathArguments, GenericArgument, Type};
@@ -75,9 +74,9 @@ impl Parser{
         file.read_to_string(&mut content).map_err(|_err| Error::InvalidSourceFile { filepath: self.file_path.clone()})?;
         
         // Convert string to AST
-        let ast = syn::parse_file(&content).map_err(|_err| Error::InvalidSourceFileContent { filepath: self.file_path.clone()})?;
+        let ast = syn::parse_file(&content).map_err(|_err| Error::InvalidRustCode  { filepath: self.file_path.clone()})?;
 
-        let states_vec = Vec::<State>::new();
+        //let states_vec = std::collections::HashMap::new();
         for item in ast.items.iter(){
             if let syn::Item::Impl(trait_impl) = item {
                 let trait_impl_info = Self::get_trait_impl_type(&trait_impl)?;
