@@ -1,9 +1,9 @@
 use core::fmt;
 use std::fs::File;
 use std::io::Read;
-use crate::errors::Error;
+use crate::{errors::Error, share::StateMachine};
 use proc_macro2::TokenStream;
-use syn::{parse::Parse, PathArguments, GenericArgument, Type};
+use syn::{parse::Parse, PathArguments, GenericArgument, Type, ImplItem};
 
 use crate::share::{State, self};
 
@@ -11,9 +11,9 @@ pub struct Parser{
     file_path : String    
 }
 #[derive(Debug)]
-pub enum TraitImplHeaderInfo{
-    State{state_tag : String, state_machine_name: String},
-    TopState{state_machine_name: String},
+pub enum TraitImplHeaderInfo<'a>{
+    State{state_tag : String, state_machine_name: String, impl_body: &'a Vec<ImplItem>},
+    TopState{state_machine_name: String, impl_body: &'a Vec<ImplItem>},
     Other
 }
 
@@ -52,12 +52,16 @@ impl Parser{
             if trait_impl_ident.to_string() == "State"{
                         trait_impl_header_info = TraitImplHeaderInfo::State {
                         state_tag: Self::get_state_tag(&segment.arguments)?,
-                        state_machine_name : Self::get_state_type(&trait_impl.self_ty)?};
+                        state_machine_name : Self::get_state_type(&trait_impl.self_ty)?,
+                        impl_body: &trait_impl.items 
+                };
                     
             }
             else if trait_impl_ident.to_string() == "TopState"{
                 trait_impl_header_info = TraitImplHeaderInfo::TopState {
-                state_machine_name: Self::get_state_type(&trait_impl.self_ty)? }
+                state_machine_name: Self::get_state_type(&trait_impl.self_ty)?,
+                impl_body: &trait_impl.items 
+                }
             }
             else{
                 trait_impl_header_info = TraitImplHeaderInfo::Other;
@@ -65,6 +69,29 @@ impl Parser{
             return Ok(trait_impl_header_info);
         }
         panic!("Should not happen")
+    }
+    
+    fn check_state_machine_ownership(label: String, state_machine_model :&mut StateMachine) -> Result<(), Error>{
+        if label == state_machine_model.label{
+            return Ok(());
+        }
+        else{
+            if state_machine_model.label.is_empty(){
+               state_machine_model.label = label;
+                return Ok(());
+            }
+            else{
+                return Err(Error::ConcurrentStateMachineImpl { expected_state_machine_name: state_machine_model.label.clone(), found_state_machine_name: label });
+            }
+        }
+    }
+    
+    pub fn fill_top_state_model(state_trait_impl_body : &Vec<ImplItem>,state_machine_model: &mut share::StateMachine){
+        
+    }
+
+    pub fn fill_state_model(state_tag : String, top_state_trait_impl_body : &Vec<ImplItem>, state_machine_model: &mut share::StateMachine){
+
     }
 
     pub fn parse(& self ) -> Result<Box<State>, Error>{
@@ -75,12 +102,24 @@ impl Parser{
         
         // Convert string to AST
         let ast = syn::parse_file(&content).map_err(|_err| Error::InvalidRustCode  { filepath: self.file_path.clone()})?;
+        
+        let mut state_machine_model = share::StateMachine::new();
 
-        //let states_vec = std::collections::HashMap::new();
         for item in ast.items.iter(){
             if let syn::Item::Impl(trait_impl) = item {
-                let trait_impl_info = Self::get_trait_impl_type(&trait_impl)?;
-                println!("{:?}", trait_impl_info);
+               let trait_impl_info = Self::get_trait_impl_type(&trait_impl)?;
+                match trait_impl_info{
+                    TraitImplHeaderInfo::State { state_tag, state_machine_name, impl_body } => {
+                        Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
+                        Self::fill_state_model(state_tag,impl_body, &mut state_machine_model);
+                    }
+                    TraitImplHeaderInfo::TopState {state_machine_name, impl_body} => {
+                        Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
+                        Self::fill_top_state_model(impl_body, &mut state_machine_model);
+                    }
+                    TraitImplHeaderInfo::Other => ()
+                }
+                //println!("{:?}", trait_impl_info);
             }
         }
         unimplemented!();

@@ -13,5 +13,8 @@ pub enum Error{
     #[error("invalid state tag")]
     InvalidStateTag,
     #[error("invalid state machine name")]
-    InvalidStateMachineName
+    InvalidStateMachineName,
+    #[error("State machine {expected_state_machine_name} and {found_state_machine_name} cannot be implemented in the same file")]
+    ConcurrentStateMachineImpl{expected_state_machine_name: String, found_state_machine_name: String}
+
 }
