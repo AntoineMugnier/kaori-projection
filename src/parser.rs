@@ -27,20 +27,24 @@ impl Parser{
         if let PathArguments::AngleBracketed(ab) = path_argument{
             if let GenericArgument::Type(generic_arg_0) = &ab.args[0]{
                 if let Type::Path(path) = generic_arg_0{
-                    let ident = &path.path.segments[0].ident;
+                    let ident = &path.path.segments.last().unwrap().ident;
                     return Ok(ident.to_string())
                 } 
              }
         }
-        return Err(Error::InvalidStateTag);
+        let line_col = path_argument.span().start();
+        return Err(Error::InvalidStateTag{line: line_col.line, col: line_col.column});
      }
 
     fn get_state_type(self_ty: &Type) -> Result<String, Error>{
             if let Type::Path(path) = self_ty{
-                    let ident = &path.path.segments[0].ident;
+                    let ident = &path.path.segments.last().unwrap().ident;
                     return Ok(ident.to_string())
                 }
-            else { Err(Error::InvalidStateMachineName)}
+            else {
+            let line_col = self_ty.span().start();
+            Err(Error::InvalidStateMachineName{line: line_col.line, col: line_col.column})
+        }
     }
 
     pub fn get_trait_impl_type(trait_impl :  &syn::ItemImpl) -> Result<TraitImplSignatureInfo, Error>{
