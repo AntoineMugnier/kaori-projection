@@ -2,8 +2,9 @@ use std::ops::Deref;
 use std::fs::File;
 use std::io::Read;
 use crate::{errors::Error, share::StateMachine};
-use syn::{PathArguments, GenericArgument, Type, ImplItem, ImplItemType};
+use syn::{PathArguments, GenericArgument, Type, ImplItem, ImplItemType, ItemImpl};
 
+use syn::spanned::Spanned;
 use crate::share::{State, self};
 
 pub struct Parser{
@@ -84,11 +85,10 @@ impl Parser{
             }
         }
     }
-
     fn parse_top_state_associated_type(type_: &ImplItemType, state_machine_model: &mut StateMachine) -> Result<(), Error>{
-        let type_ident = type_.ident.to_string();
+        let type_ident = &type_.ident;
         let type_alias = &type_.ty;
-        if type_ident == "Evt"{
+        if type_ident.to_string() == "Evt"{
             if let Type::Path(type_alias) = type_alias{
                 let segment = type_alias.path.segments.last();
                 if let Some(segment) = segment{
@@ -97,7 +97,7 @@ impl Parser{
                 }
             }
         }
-        return Err(Error::InvalidEvtTypeDef);
+        return Err(Error::InvalidEvtTypeDef{line: type_.span().start().line, col: type_.span().start().column});
     } 
     
     pub fn try_insert_state_into_model(state_machine_model: &mut share::StateMachine, state_tag: String){
@@ -120,8 +120,9 @@ impl Parser{
         return false;
     }
 
-    pub fn fill_top_state_model(state_trait_impl_body : &Vec<ImplItem>,state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
-       for item in state_trait_impl_body.iter(){
+    pub fn fill_top_state_model(trait_impl : &ItemImpl,state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
+        let state_trait_impl_body =  &trait_impl.items;
+        for item in state_trait_impl_body.iter(){
             match item{
                 ImplItem::Type(type_) =>{
                      Self::parse_top_state_associated_type(&type_, state_machine_model)?;
@@ -152,7 +153,8 @@ impl Parser{
                             } 
                         }
                         if state_machine_model.top_state.init_target.is_none(){
-                            return Err(Error::MissingTopStateInitTranCall)
+                            let line_col = fn_.span().start();
+                            return Err(Error::MissingTopStateInitTranCall{line: line_col.line, col: line_col.column})
                         }
                     }
                 },
@@ -162,11 +164,13 @@ impl Parser{
         
         // Trigger error if all searched items are not found
         if state_machine_model.top_state.init_target.is_none(){
-            Err(Error::MissingTopStateInitDef)
+            let line_col = trait_impl.span().start();
+            Err(Error::MissingTopStateInitDef{line: line_col.line, col: line_col.column})
         }
         
         else if state_machine_model.top_state.evt_type_alias.is_none(){
-            Err(Error::MissingEvtTypeDef)
+            let line_col = trait_impl.span().start();
+            Err(Error::MissingEvtTypeDef{line: line_col.line, col: line_col.column})
         }
         else{
             Ok(())        
@@ -198,14 +202,14 @@ impl Parser{
                     }
                     TraitImplSignatureInfo::TopState {state_machine_name, impl_body} => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
-                        Self::fill_top_state_model(impl_body, &mut state_machine_model)?;
-                        println!("{:#?}", state_machine_model);
+                        Self::fill_top_state_model(trait_impl, &mut state_machine_model)?;
                     }
                     TraitImplSignatureInfo::Other => ()
                 }
                 //println!("{:?}", trait_impl_info);
             }
         }
+        println!("{:#?}", state_machine_model);
         unimplemented!();
     }
 

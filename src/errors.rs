@@ -1,5 +1,5 @@
 use thiserror::Error;
-
+use proc_macro2::LineColumn;
 #[derive(Error, Debug)]
 pub enum Error{
     #[error("Compilation error in Rust code: {filepath} ")]
@@ -18,12 +18,12 @@ pub enum Error{
     ConcurrentStateMachineImpl{expected_state_machine_name: String, found_state_machine_name: String},
     #[error("Ill-formed state machine, does your code compile?")]
     IllFormedStateMachine,
-    #[error("Missing Topstate::Evt type alias definition")]
-    MissingEvtTypeDef,
-    #[error("Missing Topstate::init function definition")]
-    MissingTopStateInitDef,
-    #[error("Invalid Topstate::Evt type alias definition")]
-    InvalidEvtTypeDef,
-    #[error("Missing call to init_transition() macro in `TopState::Init()` function")]
-    MissingTopStateInitTranCall,
+    #[error("L:{line} C:{col} Missing Topstate::Evt type alias definition in Topstate trait implementation")]
+    MissingEvtTypeDef{line : usize, col: usize},
+    #[error("L:{line} C:{col} Missing Topstate::init function definition in Topstate trait implementation")]
+    MissingTopStateInitDef{line : usize, col: usize},
+    #[error("L:{line} C:{col} Invalid Topstate::Evt type alias definition")]
+    InvalidEvtTypeDef{line : usize, col: usize},
+    #[error("L:{line} C:{col} Missing call to init_transition() macro in `TopState::Init()` function")]
+    MissingTopStateInitTranCall{line : usize, col: usize},
 }
