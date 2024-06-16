@@ -1,58 +1,77 @@
 use std::collections::HashMap;
-use std::rc;
-use std::marker;
 
- pub enum Next<'a>{
-    ConditionalBranch(Box<ConditionalBranch<'a>>),
-    Target(rc::Rc<State<'a>>)
+#[derive(Debug)]
+ pub enum Next{
+    ConditionalBranch(ConditionalBranch),
+    Target(TransitionTarget)
 }
-
+#[derive(Debug)]
 pub struct Entry{
-    label: String
+    pub action: String
 }
+#[derive(Debug)]
 pub struct Exit{
-    label: String
-}
-pub struct Init<'a>{
-    label: String,
-    target: rc::Rc<State<'a>>
+    pub action: String
 }
 
-pub struct ConditionalBranch<'a>{
-    label: String, 
-    next: Vec<Next<'a>> 
+#[derive(Debug)]
+pub struct ConditionalBranch{
+    pub guard: String, 
+    pub action: String, 
+    pub next: Vec<Next> 
 }
 
-pub struct EvtHandler<'a>{
-    label: String,
-    next: Vec<Next<'a>> 
+#[derive(Debug)]
+pub struct TransitionTarget{
+    pub state_name: String
 }
 
-pub struct State<'a>{
-    phantom_data: marker::PhantomData<&'a u8>,
-    label: String,
-    entry: Option<Entry>,
-    exit: Option<Exit>,
-    init: Option<Init<'a>>,
-    evt_handlers: Vec<Box<EvtHandler<'a>>>
+
+#[derive(Debug)]
+pub struct EvtHandler{
+    pub evt_name : String,
+    pub action: String,
+    pub next: Vec<Next> 
 }
 
-pub struct TopState<'a>{
-    label: String,
-    init: Option<Init<'a>>,
+#[derive(Debug)]
+pub struct State{
+    pub name: String,
+    pub entry: Option<Entry>,
+    pub exit: Option<Exit>,
+    pub init: Option<String>,
+    pub evt_handlers: Vec<EvtHandler>
 }
 
-pub struct StateMachine<'a>{
-    pub label: String,
-    top_state: TopState<'a>,
-    states: HashMap<String, State<'a>>
+#[derive(Debug)]
+pub struct TopState{
+    pub evt_type_alias: Option<String>,
+    pub action: Option<String>,
+    pub init_target: Option<String>,
 }
 
-impl <'a> StateMachine<'a>{
-    pub fn new() -> StateMachine<'a>{
+#[derive(Debug)]
+pub struct StateMachine{
+    pub name: String,
+    pub top_state: TopState,
+    pub states: HashMap<String, State>
+}
+
+impl  State{
+    pub fn new() -> State{
+        State {
+            name: String::new(),
+            entry: None,
+            exit: None,
+            init: None,
+            evt_handlers: Vec::new()}
+    }
+}
+impl  StateMachine{
+    pub fn new() -> StateMachine{
         StateMachine{
-            label: String::new(),
-            top_state: TopState { label: String::new(), init: None },
+            name: String::new(),
+            top_state: TopState { evt_type_alias: None,action: None, init_target: None },
             states: HashMap::new()
         }
     }

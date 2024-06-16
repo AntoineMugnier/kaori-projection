@@ -1,9 +1,8 @@
-use core::fmt;
+use std::ops::Deref;
 use std::fs::File;
 use std::io::Read;
 use crate::{errors::Error, share::StateMachine};
-use proc_macro2::TokenStream;
-use syn::{parse::Parse, PathArguments, GenericArgument, Type, ImplItem};
+use syn::{PathArguments, GenericArgument, Type, ImplItem, ImplItemType};
 
 use crate::share::{State, self};
 
@@ -72,22 +71,106 @@ impl Parser{
     }
     
     fn check_state_machine_ownership(label: String, state_machine_model :&mut StateMachine) -> Result<(), Error>{
-        if label == state_machine_model.label{
+        if label == state_machine_model.name{
             return Ok(());
         }
         else{
-            if state_machine_model.label.is_empty(){
-               state_machine_model.label = label;
+            if state_machine_model.name.is_empty(){
+               state_machine_model.name = label;
                 return Ok(());
             }
             else{
-                return Err(Error::ConcurrentStateMachineImpl { expected_state_machine_name: state_machine_model.label.clone(), found_state_machine_name: label });
+                return Err(Error::ConcurrentStateMachineImpl { expected_state_machine_name: state_machine_model.name.clone(), found_state_machine_name: label });
             }
         }
     }
+
+    fn parse_top_state_associated_type(type_: &ImplItemType, state_machine_model: &mut StateMachine) -> Result<(), Error>{
+        let type_ident = type_.ident.to_string();
+        let type_alias = &type_.ty;
+        if type_ident == "Evt"{
+            if let Type::Path(type_alias) = type_alias{
+                let segment = type_alias.path.segments.last();
+                if let Some(segment) = segment{
+                    state_machine_model.top_state.evt_type_alias = Some(segment.ident.to_string());
+                    return Ok(());
+                }
+            }
+        }
+        return Err(Error::InvalidEvtTypeDef);
+    } 
     
-    pub fn fill_top_state_model(state_trait_impl_body : &Vec<ImplItem>,state_machine_model: &mut share::StateMachine){
+    pub fn try_insert_state_into_model(state_machine_model: &mut share::StateMachine, state_tag: String){
+        if !state_machine_model.states.contains_key(&state_tag){
+            let mut state = share::State::new();
+            state.name = state_tag.clone();
+            state_machine_model.states.insert(state_tag.clone(), state);
+        }
+    }
+   
+    fn try_parse_top_init_exprmacro(exprmacro: &syn::ExprMacro, state_machine_model :&mut StateMachine) -> bool{
+         if let Some(last_path_segment) = exprmacro.mac.path.segments.last(){
+            if last_path_segment.ident.to_string() == "init_transition"{
+                let target_state_tag = &exprmacro.mac.tokens.to_string();
+                Self::try_insert_state_into_model(state_machine_model, target_state_tag.clone()); 
+                state_machine_model.top_state.init_target = Some(target_state_tag.clone());
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn fill_top_state_model(state_trait_impl_body : &Vec<ImplItem>,state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
+       for item in state_trait_impl_body.iter(){
+            match item{
+                ImplItem::Type(type_) =>{
+                     Self::parse_top_state_associated_type(&type_, state_machine_model)?;
+                },
+                ImplItem::Fn(fn_) =>{
+                    if fn_.sig.ident.to_string() == "init"{
+                        let stmts = &fn_.block.stmts;
+                        for stmt in stmts{
+                            if let syn::Stmt::Expr(expr,_ ) = stmt {
+                                match expr{
+                                   syn::Expr::Macro(exprmacro) => {
+                                        if Self::try_parse_top_init_exprmacro(exprmacro, state_machine_model){
+                                            break;
+                                        } 
+                                    }
+                                    syn::Expr::Return(expreturn) =>{
+                                        let expr = &expreturn.expr;
+                                        if let Some(expr) = expr{
+                                            if let syn::Expr::Macro(exprmacro) = expr.deref() {
+                                                if Self::try_parse_top_init_exprmacro(exprmacro, state_machine_model){
+                                                    break;
+                                                } 
+                                            }
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            } 
+                        }
+                        if state_machine_model.top_state.init_target.is_none(){
+                            return Err(Error::MissingTopStateInitTranCall)
+                        }
+                    }
+                },
+                _ =>{}
+            }
+        }
         
+        // Trigger error if all searched items are not found
+        if state_machine_model.top_state.init_target.is_none(){
+            Err(Error::MissingTopStateInitDef)
+        }
+        
+        else if state_machine_model.top_state.evt_type_alias.is_none(){
+            Err(Error::MissingEvtTypeDef)
+        }
+        else{
+            Ok(())        
+        }
     }
 
     pub fn fill_state_model(state_tag : String, top_state_trait_impl_body : &Vec<ImplItem>, state_machine_model: &mut share::StateMachine){
@@ -115,7 +198,8 @@ impl Parser{
                     }
                     TraitImplHeaderInfo::TopState {state_machine_name, impl_body} => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
-                        Self::fill_top_state_model(impl_body, &mut state_machine_model);
+                        Self::fill_top_state_model(impl_body, &mut state_machine_model)?;
+                        println!("{:#?}", state_machine_model);
                     }
                     TraitImplHeaderInfo::Other => ()
                 }
