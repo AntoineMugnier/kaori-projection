@@ -10,7 +10,7 @@ pub struct Parser{
     file_path : String    
 }
 #[derive(Debug)]
-pub enum TraitImplHeaderInfo<'a>{
+pub enum TraitImplSignatureInfo<'a>{
     State{state_tag : String, state_machine_name: String, impl_body: &'a Vec<ImplItem>},
     TopState{state_machine_name: String, impl_body: &'a Vec<ImplItem>},
     Other
@@ -42,14 +42,14 @@ impl Parser{
             else { Err(Error::InvalidStateMachineName)}
     }
 
-    pub fn get_trait_impl_type(trait_impl :  &syn::ItemImpl) -> Result<TraitImplHeaderInfo, Error>{
-        let trait_impl_header_info : TraitImplHeaderInfo;
+    pub fn get_trait_impl_type(trait_impl :  &syn::ItemImpl) -> Result<TraitImplSignatureInfo, Error>{
+        let trait_impl_signature_info : TraitImplSignatureInfo;
         if let Some(trait_) = &trait_impl.trait_{
             let path = &trait_.1;
             let segment = &path.segments[0];
             let trait_impl_ident = &segment.ident;
             if trait_impl_ident.to_string() == "State"{
-                        trait_impl_header_info = TraitImplHeaderInfo::State {
+                        trait_impl_signature_info = TraitImplSignatureInfo::State {
                         state_tag: Self::get_state_tag(&segment.arguments)?,
                         state_machine_name : Self::get_state_type(&trait_impl.self_ty)?,
                         impl_body: &trait_impl.items 
@@ -57,15 +57,15 @@ impl Parser{
                     
             }
             else if trait_impl_ident.to_string() == "TopState"{
-                trait_impl_header_info = TraitImplHeaderInfo::TopState {
+                trait_impl_signature_info = TraitImplSignatureInfo::TopState {
                 state_machine_name: Self::get_state_type(&trait_impl.self_ty)?,
                 impl_body: &trait_impl.items 
                 }
             }
             else{
-                trait_impl_header_info = TraitImplHeaderInfo::Other;
+                trait_impl_signature_info = TraitImplSignatureInfo::Other;
             }
-            return Ok(trait_impl_header_info);
+            return Ok(trait_impl_signature_info);
         }
         panic!("Should not happen")
     }
@@ -192,16 +192,16 @@ impl Parser{
             if let syn::Item::Impl(trait_impl) = item {
                let trait_impl_info = Self::get_trait_impl_type(&trait_impl)?;
                 match trait_impl_info{
-                    TraitImplHeaderInfo::State { state_tag, state_machine_name, impl_body } => {
+                    TraitImplSignatureInfo::State { state_tag, state_machine_name, impl_body } => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
                         Self::fill_state_model(state_tag,impl_body, &mut state_machine_model);
                     }
-                    TraitImplHeaderInfo::TopState {state_machine_name, impl_body} => {
+                    TraitImplSignatureInfo::TopState {state_machine_name, impl_body} => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
                         Self::fill_top_state_model(impl_body, &mut state_machine_model)?;
                         println!("{:#?}", state_machine_model);
                     }
-                    TraitImplHeaderInfo::Other => ()
+                    TraitImplSignatureInfo::Other => ()
                 }
                 //println!("{:?}", trait_impl_info);
             }
