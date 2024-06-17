@@ -11,9 +11,9 @@ pub struct Parser{
     file_path : String    
 }
 #[derive(Debug)]
-pub enum TraitImplSignatureInfo<'a>{
-    State{state_tag : String, state_machine_name: String, impl_body: &'a Vec<ImplItem>},
-    TopState{state_machine_name: String, impl_body: &'a Vec<ImplItem>},
+pub enum TraitImplSignatureInfo{
+    State{state_tag : String, state_machine_name: String},
+    TopState{state_machine_name: String},
     Other
 }
 
@@ -57,14 +57,12 @@ impl Parser{
                         trait_impl_signature_info = TraitImplSignatureInfo::State {
                         state_tag: Self::get_state_tag(&segment.arguments)?,
                         state_machine_name : Self::get_state_type(&trait_impl.self_ty)?,
-                        impl_body: &trait_impl.items 
                 };
                     
             }
             else if trait_impl_ident.to_string() == "TopState"{
                 trait_impl_signature_info = TraitImplSignatureInfo::TopState {
                 state_machine_name: Self::get_state_type(&trait_impl.self_ty)?,
-                impl_body: &trait_impl.items 
                 }
             }
             else{
@@ -124,7 +122,7 @@ impl Parser{
         return false;
     }
 
-    pub fn fill_top_state_model(trait_impl : &ItemImpl,state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
+    pub fn fill_top_state_model(trait_impl : &ItemImpl, state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
         let state_trait_impl_body =  &trait_impl.items;
         for item in state_trait_impl_body.iter(){
             match item{
@@ -181,8 +179,8 @@ impl Parser{
         }
     }
 
-    pub fn fill_state_model(state_tag : String, top_state_trait_impl_body : &Vec<ImplItem>, state_machine_model: &mut share::StateMachine){
-
+    pub fn fill_state_model(trait_impl : &ItemImpl, state_tag : String, state_machine_model: &mut share::StateMachine){
+        
     }
 
     pub fn parse(& self ) -> Result<Box<State>, Error>{
@@ -200,11 +198,11 @@ impl Parser{
             if let syn::Item::Impl(trait_impl) = item {
                let trait_impl_info = Self::get_trait_impl_type(&trait_impl)?;
                 match trait_impl_info{
-                    TraitImplSignatureInfo::State { state_tag, state_machine_name, impl_body } => {
+                    TraitImplSignatureInfo::State { state_tag, state_machine_name} => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
-                        Self::fill_state_model(state_tag,impl_body, &mut state_machine_model);
+                        Self::fill_state_model(trait_impl, state_tag, &mut state_machine_model);
                     }
-                    TraitImplSignatureInfo::TopState {state_machine_name, impl_body} => {
+                    TraitImplSignatureInfo::TopState {state_machine_name} => {
                         Self::check_state_machine_ownership(state_machine_name, &mut state_machine_model)?;
                         Self::fill_top_state_model(trait_impl, &mut state_machine_model)?;
                     }
