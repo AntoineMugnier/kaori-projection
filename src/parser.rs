@@ -121,14 +121,15 @@ impl Parser{
         return None;
     }
 
-    pub fn parse_init_fn(fn_: &ImplItemFn, state_machine_model: &mut share::StateMachine) -> Result<String, Error>{
+    pub fn parse_init_fn(fn_: &ImplItemFn, state_machine_model: &mut share::StateMachine) -> Result<(String, Option<String>), Error>{
         let stmts = &fn_.block.stmts;
+        let mut action = None;
         for stmt in stmts{
             if let syn::Stmt::Expr(expr,_ ) = stmt {
                 match expr{
                    syn::Expr::Macro(exprmacro) => {
                         if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro, state_machine_model){
-                            return Ok(target_state_tag.clone());
+                            return Ok((target_state_tag.clone(), action));
                         }
                     }
                     syn::Expr::Return(expreturn) =>{
@@ -136,7 +137,7 @@ impl Parser{
                         if let Some(expr) = expr{
                             if let syn::Expr::Macro(exprmacro) = expr.deref() {
                                 if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro, state_machine_model){
-                                return Ok(target_state_tag.clone());
+                                return Ok((target_state_tag.clone(), action));
 
                                 } 
                             }
@@ -144,7 +145,8 @@ impl Parser{
                     }
                     _ => (),
                 }
-            } 
+            }
+            action = stmt.span().source_text(); 
         }
         
        let line_col = fn_.span().start();
@@ -160,8 +162,9 @@ impl Parser{
                 },
                 ImplItem::Fn(fn_) =>{
                     if fn_.sig.ident.to_string() == "init"{
-                        let init_target = Self::parse_init_fn(fn_, state_machine_model)?;
-                        state_machine_model.top_state.init.target = Some(init_target);
+                        let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
+                        state_machine_model.top_state.init.target = init_target;
+                        state_machine_model.top_state.init.action = action;
                     }
                 },
                 _ =>{}
@@ -169,7 +172,7 @@ impl Parser{
         }
         
         // Trigger error if all searched items are not found
-        if state_machine_model.top_state.init.target.is_none(){
+        if state_machine_model.top_state.init.target.is_empty(){
             let line_col = trait_impl.span().start();
             Err(Error::MissingInitDef {line: line_col.line, col: line_col.column})
         }
@@ -187,12 +190,14 @@ impl Parser{
         Self::try_insert_state_into_model(state_machine_model, state_tag.clone()); 
         let state_trait_impl_body =  &trait_impl.items;
         let mut init = None;
+        
         for item in state_trait_impl_body.iter(){
             if let ImplItem::Fn(fn_) = item{
                   if fn_.sig.ident.to_string() == "init"{
-                    let init_target = Self::parse_init_fn(fn_, state_machine_model)?;
+                    let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
                     let mut new_init = share::Init::new();
-                    new_init.target = Some(init_target);
+                    new_init.action = action;
+                    new_init.target = init_target;
                     init = Some(new_init);
                 }
             }
@@ -200,9 +205,7 @@ impl Parser{
         
         let state = state_machine_model.states.get_mut(&state_tag).unwrap();
         
-        if init.is_some(){
-            state.init = init; 
-        }
+       state.init = init; 
         
         return Ok(())
     }

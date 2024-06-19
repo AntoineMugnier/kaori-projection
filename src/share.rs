@@ -8,8 +8,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Init{
-    pub action: String,
-    pub target: Option<String>
+    pub action: Option<String>,
+    pub target: String
 }
 
 #[derive(Debug)]
@@ -67,8 +67,8 @@ pub struct StateMachine{
 impl  Init{
     pub fn new() -> Init{
         Init {
-            action: String::new(),
-            target: None
+            action: None,
+            target: String::new()
         }
     }
 }
