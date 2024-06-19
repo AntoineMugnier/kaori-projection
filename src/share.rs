@@ -14,12 +14,12 @@ pub struct Init{
 
 #[derive(Debug)]
 pub struct Entry{
-    pub action: String
+    pub action: Option<String>
 }
 
 #[derive(Debug)]
 pub struct Exit{
-    pub action: String
+    pub action: Option<String>
 }
 
 #[derive(Debug)]

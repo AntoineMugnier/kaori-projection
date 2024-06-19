@@ -146,7 +146,7 @@ impl Parser{
                     _ => (),
                 }
             }
-            action = stmt.span().source_text(); 
+            action = stmt.span().source_text(); // Get the whole statement as a string 
         }
         
        let line_col = fn_.span().start();
@@ -186,19 +186,42 @@ impl Parser{
         }
     }
 
+    // Same handling for parsing both functions
+    pub fn parse_entry_or_exit_fn(fn_: &ImplItemFn) -> Option<String>{
+        let stmts = &fn_.block.stmts;
+        let mut action = None;
+        if let Some(stmt) = stmts.last(){
+                action = stmt.span().source_text();
+        }
+        action
+    }
+
     pub fn fill_state_model(trait_impl : &ItemImpl, state_tag : String, state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
         Self::try_insert_state_into_model(state_machine_model, state_tag.clone()); 
         let state_trait_impl_body =  &trait_impl.items;
         let mut init = None;
-        
+        let mut entry = None;
+        let mut exit = None;
+
         for item in state_trait_impl_body.iter(){
             if let ImplItem::Fn(fn_) = item{
-                  if fn_.sig.ident.to_string() == "init"{
-                    let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
-                    let mut new_init = share::Init::new();
-                    new_init.action = action;
-                    new_init.target = init_target;
-                    init = Some(new_init);
+                match fn_.sig.ident.to_string().as_str() {
+                    "init" =>{
+                       let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
+                       let mut new_init = share::Init::new();
+                       new_init.action = action;
+                       new_init.target = init_target;
+                       init = Some(new_init);
+                    }
+                    "entry" =>{
+                        let action = Self::parse_entry_or_exit_fn(fn_);
+                        entry = Some(share::Entry{action});
+                    }
+                    "exit" =>{
+                        let action = Self::parse_entry_or_exit_fn(fn_);
+                        exit = Some(share::Exit{action});
+                    }
+                    _ => ()
                 }
             }
         }
@@ -206,7 +229,9 @@ impl Parser{
         let state = state_machine_model.states.get_mut(&state_tag).unwrap();
         
        state.init = init; 
-        
+       state.entry = entry;
+       state.exit = exit;
+
         return Ok(())
     }
 
