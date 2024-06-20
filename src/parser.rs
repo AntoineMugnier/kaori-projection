@@ -110,25 +110,24 @@ impl Parser{
         }
     }
    
-    fn try_parse_init_exprmacro(exprmacro: &syn::ExprMacro, state_machine_model :&mut StateMachine) -> Option<String>{
+    fn try_parse_init_exprmacro(exprmacro: &syn::ExprMacro) -> Option<String>{
          if let Some(last_path_segment) = exprmacro.mac.path.segments.last(){
             if last_path_segment.ident.to_string() == "init_transition"{
                 let target_state_tag = &exprmacro.mac.tokens.to_string();
-                Self::try_insert_state_into_model(state_machine_model, target_state_tag.clone()); 
                 return Some(target_state_tag.clone());
             }
         }
         return None;
     }
 
-    pub fn parse_init_fn(fn_: &ImplItemFn, state_machine_model: &mut share::StateMachine) -> Result<(String, Option<String>), Error>{
+    pub fn parse_init_fn(fn_: &ImplItemFn) -> Result<(String, Option<String>), Error>{
         let stmts = &fn_.block.stmts;
         let mut action = None;
         for stmt in stmts{
             if let syn::Stmt::Expr(expr,_ ) = stmt {
                 match expr{
                    syn::Expr::Macro(exprmacro) => {
-                        if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro, state_machine_model){
+                        if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro){
                             return Ok((target_state_tag.clone(), action));
                         }
                     }
@@ -136,7 +135,7 @@ impl Parser{
                         let expr = &expreturn.expr;
                         if let Some(expr) = expr{
                             if let syn::Expr::Macro(exprmacro) = expr.deref() {
-                                if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro, state_machine_model){
+                                if let Some(target_state_tag) = Self::try_parse_init_exprmacro(exprmacro){
                                 return Ok((target_state_tag.clone(), action));
 
                                 } 
@@ -162,7 +161,7 @@ impl Parser{
                 },
                 ImplItem::Fn(fn_) =>{
                     if fn_.sig.ident.to_string() == "init"{
-                        let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
+                        let (init_target, action) = Self::parse_init_fn(fn_)?;
                         state_machine_model.top_state.init.target = init_target;
                         state_machine_model.top_state.init.action = action;
                     }
@@ -207,7 +206,7 @@ impl Parser{
             if let ImplItem::Fn(fn_) = item{
                 match fn_.sig.ident.to_string().as_str() {
                     "init" =>{
-                       let (init_target, action) = Self::parse_init_fn(fn_, state_machine_model)?;
+                       let (init_target, action) = Self::parse_init_fn(fn_)?;
                        let mut new_init = share::Init::new();
                        new_init.action = action;
                        new_init.target = init_target;
@@ -220,6 +219,9 @@ impl Parser{
                     "exit" =>{
                         let action = Self::parse_entry_or_exit_fn(fn_);
                         exit = Some(share::Exit{action});
+                    }
+                    "handle" =>{
+                        
                     }
                     _ => ()
                 }
