@@ -36,10 +36,16 @@ pub struct TransitionTarget{
 
 
 #[derive(Debug)]
-pub struct EvtHandler{
-    pub evt_name : String,
+pub struct EvtCatcher{
+    pub evt_type_name: String,
+    pub evt_variant_name : String,
     pub action: String,
     pub next: Vec<Next> 
+}
+
+#[derive(Debug)]
+pub struct EvtHandler{
+    pub evt_catchers: Vec<EvtCatcher> 
 }
 
 #[derive(Debug)]
@@ -48,7 +54,7 @@ pub struct State{
     pub entry: Option<Entry>,
     pub exit: Option<Exit>,
     pub init: Option<Init>,
-    pub evt_handlers: Vec<EvtHandler>
+    pub evt_handler: EvtHandler
 }
 
 #[derive(Debug)]
@@ -72,6 +78,23 @@ impl  Init{
         }
     }
 }
+impl EvtCatcher{
+    pub fn new() -> EvtCatcher{
+        EvtCatcher{
+            evt_type_name: String::new(),
+            evt_variant_name: String::new(),
+            action: String::new(),
+            next : Vec::new()
+        }
+    }
+}
+impl EvtHandler{
+    pub fn new() -> EvtHandler{
+        EvtHandler{
+            evt_catchers: Vec::new()
+        }
+    }
+}
 
 impl  State{
     pub fn new() -> State{
@@ -80,9 +103,11 @@ impl  State{
             entry: None,
             exit: None,
             init: None,
-            evt_handlers: Vec::new()}
+            evt_handler: EvtHandler::new() 
+        }
     }
 }
+
 impl  StateMachine{
     pub fn new() -> StateMachine{
         StateMachine{

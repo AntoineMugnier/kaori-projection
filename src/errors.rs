@@ -23,4 +23,10 @@ pub enum Error{
     InvalidEvtTypeDef{line : usize, col: usize},
     #[error("L:{line} C:{col} Missing call to init_transition() macro ")]
     MissingInitTranCall{line : usize, col: usize},
+    #[error("L:{line} C:{col} Missing definition of handle() function in State trait")]
+    MissingEvtHandleFunction{line : usize, col: usize},
+    #[error("L:{line} C:{col} Missing match to enum evt in handle() function")]
+    MissingEvtHandler{line : usize, col: usize},
+    #[error("L:{line} C:{col} Error parsing event variant in match arm")]
+    InvalidEvtMatch{line : usize, col: usize},
 }

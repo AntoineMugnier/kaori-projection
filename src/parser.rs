@@ -5,7 +5,7 @@ use crate::{errors::Error, share::StateMachine};
 use syn::{PathArguments, GenericArgument, Type, ImplItem, ImplItemType, ItemImpl, ImplItemFn};
 
 use syn::spanned::Spanned;
-use crate::share::{State, self};
+use crate::share::{State, self, EvtHandler, EvtCatcher};
 
 pub struct Parser{
     file_path : String    
@@ -173,7 +173,7 @@ impl Parser{
         // Trigger error if all searched items are not found
         if state_machine_model.top_state.init.target.is_empty(){
             let line_col = trait_impl.span().start();
-            Err(Error::MissingInitDef {line: line_col.line, col: line_col.column})
+            Err(Error::MissingInitDef{line: line_col.line, col: line_col.column})
         }
         
         else if state_machine_model.top_state.evt_type_alias.is_none(){
@@ -195,12 +195,72 @@ impl Parser{
         action
     }
 
+    pub fn parse_handle(fn_: &ImplItemFn)-> Result<share::EvtHandler, Error> {
+        let stmts = &fn_.block.stmts;
+        let mut evt_handler = EvtHandler::new();
+
+        for stmt in stmts{
+            if let syn::Stmt::Expr(expr,_ ) = stmt {
+                match expr{
+                    syn::Expr::Match(match_) =>{
+                        
+                        let mut correct_matched_arm = false;
+                        // Check that the match is being done on the proper variable
+                        if let syn::Expr::Path(evt_name) = match_.expr.deref(){
+                           if let Some(evt_name) = evt_name.path.get_ident(){
+                                if evt_name.to_string() == "evt"{
+                                    correct_matched_arm = true;
+                                }
+                            }
+                        }
+
+                        if !correct_matched_arm { 
+                            continue;
+                        }
+
+                        for arm in match_.arms.iter(){
+                            let mut evt_catcher = EvtCatcher::new();
+                            let mut correct_variant = false;
+                           let pat = &arm.pat;
+                            
+                            match pat{
+                                syn::Pat::Wild(_) => {break;}
+                                syn::Pat::Path(path)=>{                                let segments = &path.path.segments;
+                                    let segments_vec_len = segments.len();
+                                    if segments_vec_len>=2{
+                                        let evt_type_name = &segments[segments_vec_len - 2];
+                                        let evt_variant_name = &segments[segments_vec_len - 1];
+                                        evt_catcher.evt_type_name = evt_type_name.ident.to_string();
+                                        evt_catcher.evt_variant_name = evt_variant_name.ident.to_string();
+                                        correct_variant = true;
+                                    }
+                                }
+                                _ => {continue;}
+                            }
+                       //println!("{:#?}",arm);
+                            if correct_variant == false{
+                                let line_col = pat.span().start();
+                                return Err(Error::InvalidEvtMatch{ line:line_col.line , col: line_col.column});
+                            }
+
+                            evt_handler.evt_catchers.push(evt_catcher);
+                        } 
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        Ok(evt_handler)
+    }
+
     pub fn fill_state_model(trait_impl : &ItemImpl, state_tag : String, state_machine_model: &mut share::StateMachine) -> Result<(), Error>{
         Self::try_insert_state_into_model(state_machine_model, state_tag.clone()); 
         let state_trait_impl_body =  &trait_impl.items;
         let mut init = None;
         let mut entry = None;
         let mut exit = None;
+        let mut evt_handler = None;
 
         for item in state_trait_impl_body.iter(){
             if let ImplItem::Fn(fn_) = item{
@@ -221,7 +281,7 @@ impl Parser{
                         exit = Some(share::Exit{action});
                     }
                     "handle" =>{
-                        
+                       evt_handler = Some(Self::parse_handle(fn_)?);
                     }
                     _ => ()
                 }
@@ -230,9 +290,17 @@ impl Parser{
         
         let state = state_machine_model.states.get_mut(&state_tag).unwrap();
         
-       state.init = init; 
-       state.entry = entry;
-       state.exit = exit;
+        state.init = init; 
+        state.entry = entry;
+        state.exit = exit;
+
+        if let Some(evt_handler) = evt_handler{
+            state.evt_handler = evt_handler;
+        }
+        else{
+            let line_col = trait_impl.span().start();
+            return Err(Error::MissingEvtHandler {line: line_col.line, col: line_col.column})
+        }
 
         return Ok(())
     }
