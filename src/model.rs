@@ -39,7 +39,7 @@ pub struct TransitionTarget{
 pub struct EvtCatcher{
     pub evt_type_name: String,
     pub evt_variant_name : String,
-    pub action: String,
+    pub action: Option<String>,
     pub next: Vec<Next> 
 }
 
@@ -83,7 +83,7 @@ impl EvtCatcher{
         EvtCatcher{
             evt_type_name: String::new(),
             evt_variant_name: String::new(),
-            action: String::new(),
+            action: None,
             next : Vec::new()
         }
     }

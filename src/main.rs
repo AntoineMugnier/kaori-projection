@@ -1,4 +1,4 @@
-mod share;
+mod model;
 mod parser;
 mod errors;
 use std::env;
