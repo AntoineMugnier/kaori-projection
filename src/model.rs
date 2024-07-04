@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
  pub enum Next{
-    ConditionalBranch(ConditionalBranch),
-    Target(TransitionTarget)
+    Condition(Condition),
+    Target(TransitionTarget),
+    Handled()
 }
 
 #[derive(Debug)]
@@ -23,10 +24,15 @@ pub struct Exit{
 }
 
 #[derive(Debug)]
+pub struct Condition{
+    pub branches: Vec<ConditionalBranch>
+}
+
+#[derive(Debug)]
 pub struct ConditionalBranch{
     pub guard: String, 
-    pub action: String, 
-    pub next: Vec<Next> 
+    pub action: Option<String>, 
+    pub next: Next 
 }
 
 #[derive(Debug)]
@@ -40,7 +46,7 @@ pub struct EvtCatcher{
     pub evt_type_name: String,
     pub evt_variant_name : String,
     pub action: Option<String>,
-    pub next: Vec<Next> 
+    pub next: Next 
 }
 
 #[derive(Debug)]
@@ -78,16 +84,7 @@ impl  Init{
         }
     }
 }
-impl EvtCatcher{
-    pub fn new() -> EvtCatcher{
-        EvtCatcher{
-            evt_type_name: String::new(),
-            evt_variant_name: String::new(),
-            action: None,
-            next : Vec::new()
-        }
-    }
-}
+
 impl EvtHandler{
     pub fn new() -> EvtHandler{
         EvtHandler{
