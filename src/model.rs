@@ -1,47 +1,47 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
  pub enum Next{
     Condition(Condition),
     Target(TransitionTarget),
     Handled()
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Init{
     pub action: Option<String>,
     pub target: String
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Entry{
     pub action: Option<String>
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Exit{
     pub action: Option<String>
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Condition{
     pub branches: Vec<ConditionalBranch>
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ConditionalBranch{
     pub guard: String, 
     pub action: Option<String>, 
     pub next: Next 
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TransitionTarget{
     pub state_name: String
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct EvtCatcher{
     pub evt_type_name: String,
     pub evt_variant_name : String,
@@ -49,12 +49,12 @@ pub struct EvtCatcher{
     pub next: Next 
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct EvtHandler{
     pub evt_catchers: Vec<EvtCatcher> 
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct State{
     pub name: String,
     pub entry: Option<Entry>,
@@ -63,13 +63,13 @@ pub struct State{
     pub evt_handler: EvtHandler
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TopState{
     pub evt_type_alias: Option<String>,
     pub init: Init,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct StateMachine{
     pub name: String,
     pub top_state: TopState,

@@ -2,6 +2,12 @@ mod model;
 mod parser;
 mod errors;
 use std::env;
+
+#[macro_export]
+macro_rules! string {
+    ($s:expr) => { $s.to_string() }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
@@ -10,5 +16,4 @@ fn main() {
     if let Err(parsing_result) = parsing_result{
         println!("{}", parsing_result); // Just print error message for now
     }
-
 }

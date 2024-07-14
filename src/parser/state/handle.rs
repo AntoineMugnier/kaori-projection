@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::{errors::Error, model::ConditionalBranch};
+use crate::{errors::Error};
 use syn::{ImplItemFn, spanned::Spanned};
 use crate::model;
 enum MacroType{
@@ -146,9 +146,13 @@ enum MacroType{
 
     }
 
+
 #[cfg(test)]
 mod tests {
+use crate::string;
+
     use super::*;
+    use model::*;
     #[test]
     fn test_parse_match_arm_body(){
     let code = r#"
@@ -165,13 +169,43 @@ mod tests {
                 println!("S0-HANDLES-A");
                 return transition!(S1)
             }
-       } 
-    "#;
+        } 
+        "#;
+
         let stream : proc_macro2::TokenStream = code.parse().unwrap();
         let ast: syn::Arm = syn::parse2(stream).unwrap();
         // println!("{:#?}", ast);
-        let res = parse_match_arm_body(ast.body.deref()).unwrap();  
-         println!("{:#?}", res);
+        let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
+        let expected_res = (
+            Next::Condition(
+                Condition {
+                    branches: vec![
+                        ConditionalBranch{
+                            guard: string!("a==3 && call_x()"),
+                            action: Some(string!("call_fn()")),
+                            next: Next::Target(
+                                TransitionTarget{state_name: string!("S2")}
+                            )
+                        },
+                        ConditionalBranch{
+                            guard: string!("a == 2"),
+                            action: None,
+                            next: Next::Handled()
+                        },
+                        ConditionalBranch{
+                            guard: string!("else"),
+                            action: Some(string!("println!(\"S0-HANDLES-A\");")),
+                            next: Next::Target(
+                                TransitionTarget { state_name: string!("S1")}
+                            )
+                        }
+                    ]
+                }
+            ),
+            Some(string!("let a: u8 = 0;"))
+        );
+
+        assert_eq!(obtained_res, expected_res);
     }
 }    
     pub fn parse_handle(fn_: &ImplItemFn)-> Result<model::EvtHandler, Error> {
