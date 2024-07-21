@@ -97,16 +97,20 @@ enum MacroType{
                         return Ok((next, block_action));
                       }
                       StatementType::Block(branch, action) =>{
-                        return Ok((branch, action));
-                    }
+                            if action.is_some(){
+                                block_action = action.clone();
+                            }
+                            if branch != model::Next::Unterminated(){
+                                return Ok((branch, action));
+                            }
+                        }
                     }
                 },
                // Any statement not recognized is parsed as an action 
                 _=> block_action = stmt.span().source_text()
             }
         }
-        println!("{:#?}", stmts);
-        unimplemented!()
+        return Ok((model::Next::Unterminated(), block_action));
     }
 
     fn parse_condition(if_expr: &syn::ExprIf) -> Result<model::Condition, Error> {
@@ -155,7 +159,8 @@ use crate::string;
     use model::*;
     #[test]
     fn test_parse_match_arm_body(){
-    let code = r#"
+        // Test 1
+        let code = r#"
         BasicEvt::A =>{
             let a: u8 = 0;
             if a==3 && call_x() {
@@ -206,6 +211,50 @@ use crate::string;
         );
 
         assert_eq!(obtained_res, expected_res);
+        
+        // TEST 2
+        let code = r#"
+        BasicEvt::A =>{
+            if a{
+                transition!(S2)
+            }
+            else if !a{
+               { 
+                    call_fn();
+                }
+                return handled!()
+            }
+        } 
+        "#;
+
+        let stream : proc_macro2::TokenStream = code.parse().unwrap();
+        let ast: syn::Arm = syn::parse2(stream).unwrap();
+        // println!("{:#?}", ast);
+        let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
+        let expected_res = (
+            Next::Condition(
+                Condition {
+                    branches: vec![
+                        ConditionalBranch{
+                            guard: string!("a"),
+                            action: None,
+                            next: Next::Target(
+                                TransitionTarget{state_name: string!("S2")}
+                            )
+                        },
+                        ConditionalBranch{
+                            guard: string!("!a"),
+                            action: Some(string!("call_fn()")),
+                            next: Next::Handled()
+                        }
+                    ]
+                }
+            ),
+            None
+        );
+
+        assert_eq!(obtained_res, expected_res);
+    
     }
 }    
     pub fn parse_handle(fn_: &ImplItemFn)-> Result<model::EvtHandler, Error> {

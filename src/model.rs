@@ -4,8 +4,10 @@ use std::collections::HashMap;
  pub enum Next{
     Condition(Condition),
     Target(TransitionTarget),
-    Handled()
+    Handled(),
+    Unterminated()
 }
+
 
 #[derive(Debug, PartialEq)]
 pub struct Init{
