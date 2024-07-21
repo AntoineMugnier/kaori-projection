@@ -157,106 +157,108 @@ use crate::string;
 
     use super::*;
     use model::*;
+    fn test_parse_match_arm_body_cmp(input: &str, expected: (model::Next, Option<String>)){
+        let stream : proc_macro2::TokenStream = input.parse().unwrap();
+        let ast: syn::Arm = syn::parse2(stream).unwrap();
+        let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
+        assert_eq!(obtained_res, expected);
+    }
+
     #[test]
     fn test_parse_match_arm_body(){
-        // Test 1
-        let code = r#"
-        BasicEvt::A =>{
-            let a: u8 = 0;
-            if a==3 && call_x() {
-                call_fn();
-                transition!(S2)
-            }
-            else if a == 2{
-                return handled!()
-            }
-            else{
-                println!("S0-HANDLES-A");
-                return transition!(S1)
-            }
-        } 
-        "#;
-
-        let stream : proc_macro2::TokenStream = code.parse().unwrap();
-        let ast: syn::Arm = syn::parse2(stream).unwrap();
-        // println!("{:#?}", ast);
-        let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
-        let expected_res = (
-            Next::Condition(
-                Condition {
-                    branches: vec![
-                        ConditionalBranch{
-                            guard: string!("a==3 && call_x()"),
-                            action: Some(string!("call_fn()")),
-                            next: Next::Target(
-                                TransitionTarget{state_name: string!("S2")}
-                            )
-                        },
-                        ConditionalBranch{
-                            guard: string!("a == 2"),
-                            action: None,
-                            next: Next::Handled()
-                        },
-                        ConditionalBranch{
-                            guard: string!("else"),
-                            action: Some(string!("println!(\"S0-HANDLES-A\");")),
-                            next: Next::Target(
-                                TransitionTarget { state_name: string!("S1")}
-                            )
-                        }
-                    ]
-                }
-            ),
-            Some(string!("let a: u8 = 0;"))
-        );
-
-        assert_eq!(obtained_res, expected_res);
-        
-        // TEST 2
-        let code = r#"
-        BasicEvt::A =>{
-            if a{
-                transition!(S2)
-            }
-            else if !a{
-               { 
+        {
+            // Test 1
+            let code_to_be_parsed = r#"
+            BasicEvt::A =>{
+                let a: u8 = 0;
+                if a==3 && call_x() {
                     call_fn();
+                    transition!(S2)
                 }
-                return handled!()
-            }
-        } 
-        "#;
-
-        let stream : proc_macro2::TokenStream = code.parse().unwrap();
-        let ast: syn::Arm = syn::parse2(stream).unwrap();
-        // println!("{:#?}", ast);
-        let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
-        let expected_res = (
-            Next::Condition(
-                Condition {
-                    branches: vec![
-                        ConditionalBranch{
-                            guard: string!("a"),
-                            action: None,
-                            next: Next::Target(
-                                TransitionTarget{state_name: string!("S2")}
-                            )
-                        },
-                        ConditionalBranch{
-                            guard: string!("!a"),
-                            action: Some(string!("call_fn()")),
-                            next: Next::Handled()
-                        }
-                    ]
+                else if a == 2{
+                    return handled!()
                 }
-            ),
-            None
-        );
+                else{
+                    println!("S0-HANDLES-A");
+                    return transition!(S1)
+                }
+            } 
+            "#;
 
-        assert_eq!(obtained_res, expected_res);
-    
+            let expected_parsing_result = (
+                Next::Condition(
+                    Condition {
+                        branches: vec![
+                            ConditionalBranch{
+                                guard: string!("a==3 && call_x()"),
+                                action: Some(string!("call_fn()")),
+                                next: Next::Target(
+                                    TransitionTarget{state_name: string!("S2")}
+                                )
+                            },
+                            ConditionalBranch{
+                                guard: string!("a == 2"),
+                                action: None,
+                                next: Next::Handled()
+                            },
+                            ConditionalBranch{
+                                guard: string!("else"),
+                                action: Some(string!("println!(\"S0-HANDLES-A\");")),
+                                next: Next::Target(
+                                    TransitionTarget { state_name: string!("S1")}
+                                )
+                            }
+                        ]
+                    }
+                ),
+                Some(string!("let a: u8 = 0;"))
+            );
+            
+            test_parse_match_arm_body_cmp(code_to_be_parsed, expected_parsing_result);
+        }
+        {
+            // TEST 2
+            let code_to_be_parsed = r#"
+            BasicEvt::A =>{
+                if a{
+                    transition!(S2)
+                }
+                else if !a{
+                   {
+                        call_fn();
+                    }
+                    return handled!()
+                }
+            } 
+            "#;
+
+            let expected_parsing_result = (
+                Next::Condition(
+                    Condition {
+                        branches: vec![
+                            ConditionalBranch{
+                                guard: string!("a"),
+                                action: None,
+                                next: Next::Target(
+                                    TransitionTarget{state_name: string!("S2")}
+                                )
+                            },
+                            ConditionalBranch{
+                                guard: string!("!a"),
+                                action: Some(string!("call_fn()")),
+                                next: Next::Handled()
+                            }
+                        ]
+                    }
+                ),
+                None
+            );
+
+            test_parse_match_arm_body_cmp(code_to_be_parsed, expected_parsing_result);
+        }
     }
-}    
+}
+
     pub fn parse_handle(fn_: &ImplItemFn)-> Result<model::EvtHandler, Error> {
         let stmts = &fn_.block.stmts;
         let mut evt_handler = model::EvtHandler::new();
