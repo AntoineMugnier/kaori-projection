@@ -161,13 +161,17 @@ use crate::string;
         let stream : proc_macro2::TokenStream = input.parse().unwrap();
         let ast: syn::Arm = syn::parse2(stream).unwrap();
         let obtained_res = parse_match_arm_body(ast.body.deref()).unwrap();
-        assert_eq!(obtained_res, expected);
+        if obtained_res != expected{
+            eprintln!(" EXPECTED \n{:#?}", expected);
+            eprintln!("---------------------------------");
+            eprintln!(" GOT \n{:#?}", obtained_res);
+            panic!("Parsing results do not match")
+        }
     }
 
     #[test]
     fn test_parse_match_arm_body(){
         {
-            // Test 1
             let code_to_be_parsed = r#"
             BasicEvt::A =>{
                 let a: u8 = 0;
@@ -217,7 +221,6 @@ use crate::string;
             test_parse_match_arm_body_cmp(code_to_be_parsed, expected_parsing_result);
         }
         {
-            // TEST 2
             let code_to_be_parsed = r#"
             BasicEvt::A =>{
                 if a{
