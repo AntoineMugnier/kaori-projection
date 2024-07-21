@@ -259,6 +259,49 @@ use crate::string;
 
             test_parse_match_arm_body_cmp(code_to_be_parsed, expected_parsing_result);
         }
+        {
+            let code_to_be_parsed = r#"
+            BasicEvt::A =>{
+                if c != 4{
+                    // Do nothing
+                }
+                else if d < 3{
+                    do_something!();
+                }
+                if a{
+                    transition!(S2)
+                }
+                else{
+                    call_another_fn();
+                    handled!()
+                }
+           } 
+            "#;
+
+            let expected_parsing_result = (
+                Next::Condition(
+                    Condition {
+                        branches: vec![
+                            ConditionalBranch{
+                                guard: string!("a"),
+                                action: None,
+                                next: Next::Target(
+                                    TransitionTarget{state_name: string!("S2")}
+                                )
+                            },
+                            ConditionalBranch{
+                                guard: string!("else"),
+                                action: Some(string!("call_another_fn()")),
+                                next: Next::Handled()
+                            }
+                        ]
+                    }
+                ),
+                None
+            );
+
+            test_parse_match_arm_body_cmp(code_to_be_parsed, expected_parsing_result);
+        }
     }
 }
 
